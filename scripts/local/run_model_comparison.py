@@ -25,6 +25,7 @@ from replay_structure.metadata import (
     string_to_session_indicator,
     Session_Name,
     Simulated_Session_Name,
+    External_Session_Name,
     Likelihood_Function,
     string_to_likelihood_function,
     Session_List,
@@ -150,7 +151,9 @@ def run_model_comparison(
         filename_ext,
     )
 
-    if isinstance(session_indicator, Session_Name):
+    if isinstance(session_indicator, Session_Name) or isinstance(
+        session_indicator, External_Session_Name
+    ):
         random_effects_prior = 10
     elif isinstance(session_indicator, Simulated_Session_Name):
         random_effects_prior = 2

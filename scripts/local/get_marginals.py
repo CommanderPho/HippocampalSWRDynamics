@@ -112,16 +112,16 @@ def main(
 ):
     data_type_ = string_to_data_type(data_type)
     session_indicator: Session_Indicator = string_to_session_indicator(session)
+    if time_window_ms is None:
+        time_window_ms = data_type_.default_time_window_ms
     structure_data = load_structure_data(
         session_indicator,
-        data_type_.default_time_window_ms,
+        time_window_ms,
         data_type_.name,
         data_type_.default_likelihood_function,
         bin_size_cm=bin_size_cm,
         ext=filename_ext,
     )
-    if time_window_ms is None:
-        time_window_ms = data_type_.default_time_window_ms
 
     if not diffusion_only:
         if spikemat_ind is not None:

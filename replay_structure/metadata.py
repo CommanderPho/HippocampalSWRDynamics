@@ -138,7 +138,19 @@ class SessionSpikemat_Name(NamedTuple):
         return f"rat{self.rat}day{self.day}spikemat{self.spikemat}"
 
 
-Session_Indicator = Union[Session_Name, Simulated_Session_Name, SessionSpikemat_Name]
+class External_Session_Name(NamedTuple):
+    name: str
+
+    def __str__(self):
+        return self.name
+
+
+Session_Indicator = Union[
+    Session_Name,
+    Simulated_Session_Name,
+    SessionSpikemat_Name,
+    External_Session_Name,
+]
 
 
 Session_List: List[Session_Indicator] = [
@@ -347,7 +359,7 @@ def string_to_session_indicator(
         elif session_indicator in MODELS_AS_STR:
             return Simulated_Session_Name(string_to_model(session_indicator))
         else:
-            raise Exception("Input cannot be mapped to session or simulated session")
+            return External_Session_Name(session_indicator)
     elif isinstance(session_indicator, tuple):
         return SessionSpikemat_Name(
             rat=SESSION_RATDAY[session_indicator[0]]["rat"],

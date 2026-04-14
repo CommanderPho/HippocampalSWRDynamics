@@ -436,11 +436,12 @@ class Factorial_Model_Comparison:
     @staticmethod
     def collapse_over_emission_models(alpha_m_all: np.ndarray) -> np.ndarray:
         a_sum = alpha_m_all.sum(axis=0)
-        models_sum = np.array([a_sum[i * 2 : i * 2 + 2].sum() for i in range(5)])
+        n_models = len(MODELS_AS_STR)
+        models_sum = np.array([a_sum[i * 2 : i * 2 + 2].sum() for i in range(n_models)])
         p_models = models_sum / models_sum.sum()
 
-        alpha_collapsed = np.zeros((alpha_m_all.shape[0], 5))
-        for i in range(5):
+        alpha_collapsed = np.zeros((alpha_m_all.shape[0], n_models))
+        for i in range(n_models):
             alpha_collapsed[:, i] = alpha_m_all[:, i * 2 : i * 2 + 2].sum(axis=1)
         p_exceedance = np.mean(
             (alpha_collapsed.T == np.max(alpha_collapsed, axis=1)).T, axis=0

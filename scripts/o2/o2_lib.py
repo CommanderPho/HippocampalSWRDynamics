@@ -20,6 +20,7 @@ from replay_structure.metadata import (
     Session_Indicator,
     Session_Name,
     Simulated_Session_Name,
+    External_Session_Name,
     Likelihood_Function,
     HighSynchronyEvents,
 )
@@ -45,7 +46,9 @@ def submit_diffusion_gridsearch(
         o2=o2,
         ext=filename_ext,
     )
-    if isinstance(session_indicator, Session_Name):
+    if isinstance(session_indicator, Session_Name) or isinstance(
+        session_indicator, External_Session_Name
+    ):
         if (
             isinstance(data_type.name, Ripples)
             or isinstance(data_type.name, PlaceFieldID_Shuffle)
@@ -100,7 +103,9 @@ def submit_momentum_gridsearch(
         o2=o2,
         ext=filename_ext,
     )
-    if isinstance(session_indicator, Session_Name):
+    if isinstance(session_indicator, Session_Name) or isinstance(
+        session_indicator, External_Session_Name
+    ):
         if (
             isinstance(data_type.name, Ripples)
             or isinstance(data_type.name, PlaceFieldID_Shuffle)
@@ -160,7 +165,9 @@ def submit_stationary_gaussian_gridsearch(
         o2=o2,
         ext=filename_ext,
     )
-    if isinstance(session_indicator, Session_Name):
+    if isinstance(session_indicator, Session_Name) or isinstance(
+        session_indicator, External_Session_Name
+    ):
         if (
             isinstance(data_type.name, Ripples)
             or isinstance(data_type.name, PlaceFieldID_Shuffle)
@@ -219,9 +226,11 @@ def submit_viterbi(
         likelihood_function,
         bin_size_cm=bin_size_cm,
         o2=o2,
-        ext="",
+        ext=filename_ext,
     )
-    if isinstance(session_indicator, Session_Name):
+    if isinstance(session_indicator, Session_Name) or isinstance(
+        session_indicator, External_Session_Name
+    ):
         if (
             isinstance(data_type.name, Ripples)
             or isinstance(data_type.name, PlaceFieldID_Shuffle)

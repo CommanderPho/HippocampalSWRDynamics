@@ -17,6 +17,7 @@ from replay_structure.config import (
     Structure_Analysis_Input_Parameters,
     PF_SCALING_FACTOR,
 )
+from replay_structure.external_event_adapters import validate_canonical_payload
 
 
 class Structure_Analysis_Input:
@@ -34,9 +35,11 @@ class Structure_Analysis_Input:
         n_bins_x: int = 50,
         n_bins_y: int = 50,
         time_window_advance_ms: Optional[int] = None,
+        source_metadata: Optional[dict] = None,
     ):
         self.pf_matrix = pf_matrix
         self.spikemats = spikemats
+        self.source_metadata = dict(source_metadata or {})
         self.params = Structure_Analysis_Input_Parameters(
             likelihood_function_params,
             time_window_ms,
@@ -193,4 +196,53 @@ class Structure_Analysis_Input:
             bin_size_cm=highsynchrony_data.params.bin_size_cm,
             n_bins_x=highsynchrony_data.params.n_bins_x,
             n_bins_y=highsynchrony_data.params.n_bins_y,
+        )
+
+    @classmethod
+    def reformat_external_data(
+        cls,
+        external_payload: dict,
+        likelihood_function: Optional[Likelihood_Function] = None,
+        likelihood_function_params: Optional[Likelihood_Function_Params] = None,
+        require_square_grid: bool = True,
+    ):
+        validate_canonical_payload(
+            external_payload, require_square_grid=require_square_grid
+        )
+        if likelihood_function_params is None:
+            if likelihood_function is None:
+                likelihood_function = Poisson()
+            if isinstance(likelihood_function, Poisson):
+                rate_scaling = external_payload.get(
+                    "poisson_rate_scaling", PF_SCALING_FACTOR
+                )
+                likelihood_function_params = Poisson_Params(
+                    rate_scaling=rate_scaling
+                )
+            elif isinstance(likelihood_function, Neg_Binomial):
+                alpha = external_payload.get("alpha")
+                beta = external_payload.get("beta")
+                if (alpha is None) or (beta is None):
+                    raise ValueError(
+                        "external negbinomial payloads must provide alpha and beta"
+                    )
+                likelihood_function_params = Neg_Binomial_Params(
+                    alpha=alpha, beta=beta
+                )
+            else:
+                raise Exception("Invalid likelihood function")
+        source_metadata = dict(external_payload.get("source_metadata", {}))
+        source_metadata["diagnostics"] = external_payload.get("diagnostics", {})
+        source_metadata["source_name"] = external_payload.get("source_name")
+        source_metadata["event_intervals_s"] = external_payload.get("event_intervals_s")
+        return cls(
+            external_payload["pf_matrix"],
+            external_payload["spikemats"],
+            likelihood_function_params,
+            external_payload["time_window_ms"],
+            bin_size_cm=external_payload["bin_size_cm"],
+            n_bins_x=external_payload["n_bins_x"],
+            n_bins_y=external_payload["n_bins_y"],
+            time_window_advance_ms=external_payload["time_window_advance_ms"],
+            source_metadata=source_metadata,
         )

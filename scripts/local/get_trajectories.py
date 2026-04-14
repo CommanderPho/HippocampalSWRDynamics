@@ -23,6 +23,7 @@ def get_trajectories(
     time_window_ms: int,
     likelihood_function: Likelihood_Function,
     sd_meters: Optional[float],
+    filename_ext: str = "",
 ) -> None:
     print(
         f"running viterbi algorithm on {data_type.name} data, "
@@ -34,6 +35,7 @@ def get_trajectories(
         data_type.name,
         likelihood_function,
         bin_size_cm=bin_size_cm,
+        ext=filename_ext,
     )
 
     if sd_meters is None:
@@ -51,6 +53,7 @@ def get_trajectories(
         likelihood_function,
         trajectory_results,
         bin_size_cm=bin_size_cm,
+        ext=filename_ext,
     )
 
 
@@ -72,6 +75,7 @@ def get_trajectories(
 @click.option("--bin_size_cm", type=click.INT, default=4)
 @click.option("--time_window_ms", type=click.INT, default=None)
 @click.option("--sd_meters", default=None, type=click.FLOAT)
+@click.option("--filename_ext", type=click.STRING, default="")
 def main(
     data_type: str,
     session: str,
@@ -79,6 +83,7 @@ def main(
     bin_size_cm: int,
     time_window_ms: Optional[int],
     sd_meters: Optional[float],
+    filename_ext: str,
 ):
 
     data_type_ = string_to_data_type(data_type)
@@ -99,6 +104,7 @@ def main(
             time_window_ms,
             likelihood_function_,
             sd_meters,
+            filename_ext,
         )
     else:
         for session_indicator in data_type_.session_list[2:]:
@@ -109,6 +115,7 @@ def main(
                 time_window_ms,
                 likelihood_function_,
                 sd_meters,
+                filename_ext,
             )
 
 

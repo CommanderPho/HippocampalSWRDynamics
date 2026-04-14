@@ -3,7 +3,7 @@
 This repo contains the code for Krause and Drugowitsch (2022). "A large majority of 
 awake hippocampal sharp-wave ripples feature spatial trajectories with momentum". Neuron. 
 
-This repo uses [Poetry](https://python-poetry.org/docs/) to manage Python dependences.
+This repo uses [uv](https://docs.astral.sh/uv/) to manage Python dependencies (install with `uv sync`, run commands with `uv run`).
 
 ## Code file structure
 
