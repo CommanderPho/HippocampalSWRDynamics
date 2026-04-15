@@ -8,17 +8,25 @@ Module for defining project metadata.
 
 
 from typing import Union, NamedTuple, Optional, List, Tuple
+from pathlib import Path
 
 # --------------------------------------------------------------------------------------
 # DEFINE PATHS FOR LOADING/SAVING DATA
 
+REPLAY_STRUCTURE_PATH = Path(r"H:/TEMP/Spike3DEnv_ExploreUpgrade/Spike3DWorkEnv/HippocampalSWRDynamics/replay_structure").resolve()
+# REPLAY_STRUCTURE_PATH = Path(r"/Users/emmakrause/Documents/PhD/Lab/replay_structure").resolve()
+assert REPLAY_STRUCTURE_PATH.exists(), f"REPLAY_STRUCTURE_PATH: {REPLAY_STRUCTURE_PATH} does not exist!"
 
-DATA_PATH = "/Users/emmakrause/Documents/PhD/Lab/replay_structure/data"
-RESULTS_PATH = "/Users/emmakrause/Documents/PhD/Lab/replay_structure/results"
-FIGURES_PATH = "/Users/emmakrause/Documents/PhD/Lab/replay_structure/figures"
-PLOTTING_FOLDER = (
-    "/Users/emmakrause/Documents/PhD/Lab/replay_structure/results/plotting_temp"
-)
+DATA_PATH = REPLAY_STRUCTURE_PATH.joinpath("data")
+RESULTS_PATH = REPLAY_STRUCTURE_PATH.joinpath("results")
+FIGURES_PATH = REPLAY_STRUCTURE_PATH.joinpath("figures")
+PLOTTING_FOLDER = REPLAY_STRUCTURE_PATH.joinpath("results", "plotting_temp")
+RATDAY_PATH = DATA_PATH.joinpath("ratday").resolve()
+
+
+for v in [DATA_PATH, RESULTS_PATH, FIGURES_PATH, PLOTTING_FOLDER, RATDAY_PATH]:
+    v.resolve().mkdir(exist_ok=True, parents=False)
+
 DATA_PATH_O2 = "/home/ek195/replay_structure/data"
 RESULTS_PATH_O2 = "/home/ek195/replay_structure/results"
 

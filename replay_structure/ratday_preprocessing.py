@@ -293,31 +293,44 @@ class RatDay_Preprocessing:
         velocity_info: dict,
     ) -> dict:
         run_data = dict()
-        run_data["spike_times_s"] = np.array([])
-        run_data["spike_ids"] = np.array([])
-        run_x_pos = np.array([])
-        run_y_pos = np.array([])
-        for epoch in range(len(velocity_info["run_starts"])):
-            start = velocity_info["run_starts"][epoch]
-            end = velocity_info["run_ends"][epoch]
-            # extract window indices
-            spike_window_bool = utils.times_to_bool(spike_times, start, end)
-            pos_window_bool = utils.times_to_bool(pos_times, start, end)
-            # extract spikes and positions in this window
-            window_spike_times = spike_times[spike_window_bool]
-            window_spike_ids = spike_ids[spike_window_bool]
-            window_x_pos = pos_xy[:, 0][pos_window_bool]
-            window_y_pos = pos_xy[:, 1][pos_window_bool]
-            # append to list
-            run_data["spike_times_s"] = np.append(
-                run_data["spike_times_s"], window_spike_times
+        run_starts = np.asarray(velocity_info["run_starts"])
+        run_ends = np.asarray(velocity_info["run_ends"])
+        # searchsorted requires non-decreasing times; sort once if needed (O(n log n))
+        if spike_times.size > 1 and not np.all(spike_times[1:] >= spike_times[:-1]):
+            spike_order = np.argsort(spike_times, kind="mergesort")
+            spike_times = spike_times[spike_order]
+            spike_ids = spike_ids[spike_order]
+        if pos_times.size > 1 and not np.all(pos_times[1:] >= pos_times[:-1]):
+            pos_order = np.argsort(pos_times, kind="mergesort")
+            pos_times = pos_times[pos_order]
+            pos_xy = pos_xy[pos_order]
+        spike_time_chunks = []
+        spike_id_chunks = []
+        pos_x_chunks = []
+        pos_y_chunks = []
+        for start, end in zip(run_starts, run_ends):
+            i0 = np.searchsorted(spike_times, start, side="left")
+            i1 = np.searchsorted(spike_times, end, side="right")
+            if i1 > i0:
+                spike_time_chunks.append(spike_times[i0:i1])
+                spike_id_chunks.append(spike_ids[i0:i1])
+            j0 = np.searchsorted(pos_times, start, side="left")
+            j1 = np.searchsorted(pos_times, end, side="right")
+            if j1 > j0:
+                pos_x_chunks.append(pos_xy[j0:j1, 0])
+                pos_y_chunks.append(pos_xy[j0:j1, 1])
+        if spike_time_chunks:
+            run_data["spike_times_s"] = np.concatenate(spike_time_chunks)
+            run_data["spike_ids"] = np.concatenate(spike_id_chunks).astype(int)
+        else:
+            run_data["spike_times_s"] = np.array([])
+            run_data["spike_ids"] = np.array([])
+        if pos_x_chunks:
+            run_data["pos_xy_cm"] = np.stack(
+                (np.concatenate(pos_x_chunks), np.concatenate(pos_y_chunks)), axis=1
             )
-            run_data["spike_ids"] = np.append(
-                run_data["spike_ids"], window_spike_ids
-            ).astype(int)
-            run_x_pos = np.append(run_x_pos, window_x_pos)
-            run_y_pos = np.append(run_y_pos, window_y_pos)
-        run_data["pos_xy_cm"] = np.array((run_x_pos, run_y_pos)).T
+        else:
+            run_data["pos_xy_cm"] = np.empty((0, 2), dtype=float)
         return run_data
 
     def get_spatial_grid(self):
@@ -339,6 +352,48 @@ class RatDay_Preprocessing:
         )
         return position_hist
 
+    @staticmethod
+    def _get_sorted_time_data(times: np.ndarray, values: np.ndarray) -> tuple:
+        if times.size > 1 and not np.all(times[1:] >= times[:-1]):
+            sort_order = np.argsort(times, kind="mergesort")
+            return times[sort_order], values[sort_order]
+        return times, values
+
+    @staticmethod
+    def _nearest_position_indices(spike_times: np.ndarray, pos_times: np.ndarray) -> tuple:
+        if spike_times.size == 0:
+            return np.array([], dtype=int), np.array([], dtype=pos_times.dtype)
+        insert_inds = np.searchsorted(pos_times, spike_times, side="left")
+        right_inds = np.clip(insert_inds, 0, len(pos_times) - 1)
+        left_inds = np.clip(insert_inds - 1, 0, len(pos_times) - 1)
+        left_dist = np.abs(spike_times - pos_times[left_inds])
+        right_dist = np.abs(pos_times[right_inds] - spike_times)
+        nearest_inds = np.where(left_dist <= right_dist, left_inds, right_inds)
+        min_dist = np.minimum(left_dist, right_dist)
+        return nearest_inds, min_dist
+
+    @classmethod
+    def _nearest_pos_xy_for_spike_times(
+        cls, spike_times: np.ndarray, pos_times: np.ndarray, pos_xy: np.ndarray
+    ) -> tuple:
+        if spike_times.size == 0:
+            return np.empty((0, 2), dtype=float), np.array([], dtype=pos_times.dtype)
+        pos_times_sorted, pos_xy_sorted = cls._get_sorted_time_data(pos_times, pos_xy)
+        nearest_inds, min_dist = cls._nearest_position_indices(
+            spike_times, pos_times_sorted
+        )
+        return pos_xy_sorted[nearest_inds], min_dist
+
+    @staticmethod
+    def _values_to_bin_indices(values: np.ndarray, bin_edges: np.ndarray) -> tuple:
+        if values.size == 0:
+            return np.array([], dtype=int), np.array([], dtype=bool)
+        bin_indices = np.searchsorted(bin_edges, values, side="right") - 1
+        bin_indices[values == bin_edges[-1]] = len(bin_edges) - 2
+        valid = (values >= bin_edges[0]) & (values <= bin_edges[-1])
+        valid = valid & (bin_indices >= 0) & (bin_indices < len(bin_edges) - 1)
+        return bin_indices, valid
+
     def calc_spike_histograms(
         self,
         spike_times: np.ndarray,
@@ -350,22 +405,34 @@ class RatDay_Preprocessing:
         spike_histograms = np.zeros(
             (self.data["n_cells"], self.params.n_bins_x, self.params.n_bins_y)
         )
-        for cell_id in range(self.data["n_cells"]):
-            cell_spike_times = spike_times[spike_ids == cell_id]
-            cell_spike_pos_xy = self.get_spike_positions(
-                cell_spike_times, pos_xy, pos_times
-            )
-            if (len(cell_spike_times)) > 0:
-                spike_hist, _, _ = np.histogram2d(
-                    cell_spike_pos_xy[:, 0],
-                    cell_spike_pos_xy[:, 1],
-                    bins=(spatial_grid["x"], spatial_grid["y"]),
-                )
-                spike_histograms[cell_id] = spike_hist.T
-            else:
-                spike_histograms[cell_id] = np.zeros(
-                    (self.params.n_bins_x, self.params.n_bins_y)
-                )
+        if spike_times.size == 0:
+            return spike_histograms
+        spike_pos_xy = self.get_spike_positions(spike_times, pos_xy, pos_times)
+        finite_mask = np.all(np.isfinite(spike_pos_xy), axis=1)
+        valid_cell_mask = (spike_ids >= 0) & (spike_ids < self.data["n_cells"])
+        valid_mask = finite_mask & valid_cell_mask
+        if not np.any(valid_mask):
+            return spike_histograms
+        valid_spike_ids = spike_ids[valid_mask].astype(int, copy=False)
+        valid_spike_pos_xy = spike_pos_xy[valid_mask]
+        x_bin_inds, x_valid = self._values_to_bin_indices(
+            valid_spike_pos_xy[:, 0], spatial_grid["x"]
+        )
+        y_bin_inds, y_valid = self._values_to_bin_indices(
+            valid_spike_pos_xy[:, 1], spatial_grid["y"]
+        )
+        in_bounds_mask = x_valid & y_valid
+        if not np.any(in_bounds_mask):
+            return spike_histograms
+        np.add.at(
+            spike_histograms,
+            (
+                valid_spike_ids[in_bounds_mask],
+                y_bin_inds[in_bounds_mask],
+                x_bin_inds[in_bounds_mask],
+            ),
+            1,
+        )
         return spike_histograms
 
     def calc_place_fields(
@@ -374,6 +441,14 @@ class RatDay_Preprocessing:
         spike_histograms: np.ndarray,
         posterior: bool = True,
     ) -> np.ndarray:
+        if not self.params.rotate_placefields:
+            place_field_raw = self._calc_place_field_raw(
+                position_histogram, spike_histograms, posterior=posterior
+            )
+            pf_gaussian_sd_bins = utils.cm_to_bins(self.params.place_field_gaussian_sd_cm)
+            return gaussian_filter(
+                place_field_raw, sigma=(0, pf_gaussian_sd_bins, pf_gaussian_sd_bins)
+            )
         place_fields = np.zeros(
             (self.data["n_cells"], self.params.n_bins_x, self.params.n_bins_y)
         )
@@ -383,23 +458,26 @@ class RatDay_Preprocessing:
             )
         return place_fields
 
+    def _calc_place_field_raw(
+        self, position_hist_s: np.ndarray, spike_hist: np.ndarray, posterior: bool = True
+    ) -> np.ndarray:
+        if posterior:
+            spike_hist_with_prior = spike_hist + self.params.place_field_prior_alpha_s - 1
+            pos_hist_with_prior_s = position_hist_s + self.params.place_field_prior_beta_s
+            return spike_hist_with_prior / pos_hist_with_prior_s
+        with np.errstate(divide="ignore", invalid="ignore"):
+            place_field_raw = spike_hist / position_hist_s
+        return np.nan_to_num(place_field_raw)
+
     def calc_one_place_field(
         self,
         position_hist_s: np.ndarray,
         spike_hist: np.ndarray,
         posterior: bool = True,
     ) -> np.ndarray:
-        if posterior:
-            spike_hist_with_prior = (
-                spike_hist + self.params.place_field_prior_alpha_s - 1
-            )
-            pos_hist_with_prior_s = (
-                position_hist_s + self.params.place_field_prior_beta_s
-            )
-            place_field_raw = spike_hist_with_prior / pos_hist_with_prior_s
-        else:
-            place_field_raw = spike_hist / position_hist_s
-            place_field_raw = np.nan_to_num(place_field_raw)
+        place_field_raw = self._calc_place_field_raw(
+            position_hist_s, spike_hist, posterior=posterior
+        )
         if self.params.rotate_placefields:
             place_field_raw = np.roll(place_field_raw, np.random.randint(50), axis=0)
             place_field_raw = np.roll(place_field_raw, np.random.randint(50), axis=1)
@@ -412,25 +490,27 @@ class RatDay_Preprocessing:
     def get_spike_positions(
         self, cell_spike_times: np.ndarray, pos_xy: np.ndarray, pos_times: np.ndarray
     ) -> np.ndarray:
-        cell_spike_pos_xy = np.array(
-            [
-                self.find_position_during_spike(pos_xy, pos_times, time)
-                for time in cell_spike_times
-            ]
+        cell_spike_pos_xy, _ = self._nearest_pos_xy_for_spike_times(
+            cell_spike_times, pos_times, pos_xy
         )
         return cell_spike_pos_xy
 
     def find_position_during_spike(
         self, pos_xy: np.ndarray, pos_times: np.ndarray, spike_time: float
     ) -> np.ndarray:
-        abs_diff = np.abs(pos_times - spike_time)
-        min_diff = np.min(abs_diff)
+        nearest_pos_xy, min_diff = self._nearest_pos_xy_for_spike_times(
+            np.array([spike_time]), pos_times, pos_xy
+        )
         if min_diff > self.params.position_recording_gap_threshold_s:
+            pos_times_sorted, _ = self._get_sorted_time_data(pos_times, pos_xy)
+            nearest_inds, _ = self._nearest_position_indices(
+                np.array([spike_time]), pos_times_sorted
+            )
             print(
                 "find_pos_ind_nearest_spike() returning value larger than gap "
-                f"threshold: {min_diff, np.where(abs_diff == min_diff)}"
+                f"threshold: {(min_diff[0], nearest_inds)}"
             )
-        nearest_pos_xy = pos_xy[abs_diff == min_diff][0]
+        nearest_pos_xy = nearest_pos_xy[0]
         if nearest_pos_xy.shape != (2,):
             nearest_pos_xy = nearest_pos_xy[0]
         return nearest_pos_xy

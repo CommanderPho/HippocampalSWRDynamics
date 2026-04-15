@@ -151,21 +151,50 @@ def get_spikemat(
     time_window_s: float,
     time_window_advance_s: float,
 ) -> np.ndarray:
-    spikemat = np.empty(shape=(0, len(place_cell_ids)), dtype=int)
+    n_place_cells = len(place_cell_ids)
+    n_bins = 0
     timebin_start_time = start_time
     timebin_end_time = start_time + time_window_s
     while timebin_end_time < end_time:
-        spikes_after_start = spike_times >= timebin_start_time
-        spikes_before_end = spike_times < timebin_end_time
-        timebin_bool = spikes_after_start == spikes_before_end
-        spike_ids_in_window = spike_ids[timebin_bool]
-        spikevector = np.array(
-            [[sum(spike_ids_in_window == cell_id) for cell_id in place_cell_ids]]
-        )
-        spikemat = np.append(spikemat, spikevector, axis=0)
+        n_bins += 1
         timebin_start_time = timebin_start_time + time_window_advance_s
         timebin_end_time = timebin_end_time + time_window_advance_s
-    return np.array(spikemat).astype(int)
+
+    spikemat = np.zeros((n_bins, n_place_cells), dtype=int)
+    if n_bins == 0 or n_place_cells == 0 or len(spike_times) == 0:
+        return spikemat
+
+    bin_starts = np.empty(n_bins, dtype=float)
+    timebin_start_time = start_time
+    for bin_ind in range(n_bins):
+        bin_starts[bin_ind] = timebin_start_time
+        timebin_start_time = timebin_start_time + time_window_advance_s
+    bin_ends = bin_starts + time_window_s
+
+    sort_order = np.argsort(spike_times, kind="stable")
+    spike_times_sorted = spike_times[sort_order]
+    spike_ids_sorted = spike_ids[sort_order]
+    start_inds = np.searchsorted(spike_times_sorted, bin_starts, side="left")
+    end_inds = np.searchsorted(spike_times_sorted, bin_ends, side="left")
+
+    max_spike_id = int(spike_ids_sorted.max()) if len(spike_ids_sorted) > 0 else -1
+    max_place_cell_id = int(place_cell_ids.max()) if n_place_cells > 0 else -1
+    max_cell_id = max(max_spike_id, max_place_cell_id)
+    cell_id_to_col_ind = np.full(max_cell_id + 1, -1, dtype=int)
+    cell_id_to_col_ind[place_cell_ids] = np.arange(n_place_cells, dtype=int)
+
+    for bin_ind, (start_ind, end_ind) in enumerate(zip(start_inds, end_inds)):
+        if start_ind == end_ind:
+            continue
+
+        spike_ids_in_window = spike_ids_sorted[start_ind:end_ind]
+        spike_col_inds = cell_id_to_col_ind[spike_ids_in_window]
+        valid_spike_col_inds = spike_col_inds[spike_col_inds >= 0]
+        if len(valid_spike_col_inds) == 0:
+            continue
+        spikemat[bin_ind] = np.bincount(valid_spike_col_inds, minlength=n_place_cells)
+
+    return spikemat
 
 
 def get_trajectories(ratday, run_times):

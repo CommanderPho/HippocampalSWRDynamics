@@ -5,6 +5,7 @@ Markov Models (Bishop 2009, Chapter 13).
 
 import numpy as np
 import os
+from pathlib import Path
 import torch
 import pickle
 
@@ -21,6 +22,7 @@ def load_data(filename, print_filename=True):
 def save_data(data, filename, print_filename=True):
     if print_filename:
         print("saving ", filename)
+    Path(filename).parent.mkdir(parents=True, exist_ok=True)
     serialized = pickle.dumps(data)
     with open(filename, "wb") as file_object:
         file_object.write(serialized)

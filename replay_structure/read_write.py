@@ -1,6 +1,7 @@
 import pickle
 import compress_pickle
 import os
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from typing import Optional, Union
@@ -58,9 +59,14 @@ def load_compressed_data(filename, print_filename=True):
     return deserialized
 
 
+def _ensure_parent_dir(filename) -> None:
+    Path(filename).parent.mkdir(parents=True, exist_ok=True)
+
+
 def save_data(data, filename, print_filename=True):
     if print_filename:
         print("saving ", filename)
+    _ensure_parent_dir(filename)
     serialized = pickle.dumps(data)
     with open(filename, "wb") as file_object:
         file_object.write(serialized)
@@ -69,6 +75,7 @@ def save_data(data, filename, print_filename=True):
 def save_compressed_data(data, filename, print_filename=True):
     if print_filename:
         print("saving ", filename)
+    _ensure_parent_dir(filename)
     serialized = compress_pickle.dumps(data, "gzip")
     with open(filename, "wb") as file_object:
         file_object.write(serialized)
@@ -85,15 +92,11 @@ def save_ratday_data(
     ext="",
 ) -> None:
     if placefields_rotated:
-        filename = os.path.join(
-            DATA_PATH,
-            "ratday",
+        filename = DATA_PATH.joinpath("ratday",
             f"{session_indicator}_{bin_size_cm}cm_placefields_rotated{ext}.obj",
         )
     else:
-        filename = os.path.join(
-            DATA_PATH, "ratday", f"{session_indicator}_{bin_size_cm}cm{ext}.obj"
-        )
+        filename = DATA_PATH.joinpath("ratday", f"{session_indicator}_{bin_size_cm}cm{ext}.obj")
     save_data(ratday, filename)
 
 
@@ -104,15 +107,9 @@ def load_ratday_data(
     ext="",
 ) -> RatDay_Preprocessing:
     if placefields_rotated:
-        filename = os.path.join(
-            DATA_PATH,
-            "ratday",
-            f"{session_indicator}_{bin_size_cm}cm_placefields_rotated{ext}.obj",
-        )
+        filename = DATA_PATH.joinpath("ratday", f"{session_indicator}_{bin_size_cm}cm_placefields_rotated{ext}.obj")
     else:
-        filename = os.path.join(
-            DATA_PATH, "ratday", f"{session_indicator}_{bin_size_cm}cm{ext}.obj"
-        )
+        filename = DATA_PATH.joinpath("ratday", f"{session_indicator}_{bin_size_cm}cm{ext}.obj")
     ratday = load_data(filename)
     return ratday
 
@@ -133,11 +130,13 @@ def save_spikemat_data(
     bin_size_cm: int = 4,
     ext="",
 ) -> None:
-    filename = os.path.join(
-        DATA_PATH,
+    filename = DATA_PATH.joinpath(
         str(data_type),
         f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms{ext}.obj",
     )
+    if filename.is_file():
+        filename.parent.mkdir(exist_ok=True, parents=True) ## try to create the parent directory
+
     save_data(spikemat_data, filename)
 
 
@@ -154,8 +153,7 @@ def load_spikemat_data(
     Simulated_Data_Preprocessing,
     HighSynchronyEvents_Preprocessing,
 ]:
-    filename = os.path.join(
-        DATA_PATH,
+    filename = DATA_PATH.joinpath(
         str(data_type),
         f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms{ext}.obj",
     )
@@ -180,8 +178,7 @@ def save_structure_data(
     else:
         folder = "structure_analysis_input"
 
-    filename = os.path.join(
-        DATA_PATH,
+    filename = DATA_PATH.joinpath(
         folder,
         f"{session_indicator}_{data_type}_{bin_size_cm}cm_{time_window_ms}ms_"
         f"{likelihood_function}{ext}.obj",
@@ -763,6 +760,7 @@ def save_descriptive_stats(
         f"descriptive_stats_{bin_size_cm}cm_{time_window_ms}ms_"
         f"{likelihood_function}{ext}.csv",
     )
+    _ensure_parent_dir(filename)
     descriptive_stats.to_csv(filename)
 
 
@@ -831,8 +829,7 @@ def save_model_recovery_simulated_trajectory_set(
     data_type: Data_Type_Name,
     ext="",
 ):
-    filename = os.path.join(
-        DATA_PATH,
+    filename = DATA_PATH.joinpath(
         str(data_type),
         f"{session_indicator}_simulated_trajectories{ext}.obj",
     )
@@ -842,8 +839,7 @@ def save_model_recovery_simulated_trajectory_set(
 def load_model_recovery_simulated_trajectory_set(
     data_type: Data_Type_Name, session_indicator: Simulated_Session_Name, ext=""
 ) -> Model_Recovery_Trajectory_Set:
-    filename = os.path.join(
-        DATA_PATH,
+    filename = DATA_PATH.joinpath(
         str(data_type),
         f"{session_indicator}_simulated_trajectories{ext}.obj",
     )
