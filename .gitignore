@@ -28,3 +28,4 @@ data/*
 
 # poetry
 replay_structure.egg-info/*
+**/.specstory

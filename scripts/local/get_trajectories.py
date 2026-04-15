@@ -1,60 +1,9 @@
-import click
-
-# import scipy.stats as sp
 from typing import Optional
 
-# import replay_structure.maximum_likelihood_parameters as ml_params
-from replay_structure.metadata import (
-    string_to_data_type,
-    string_to_session_indicator,
-    Session_Indicator,
-    Data_Type,
-    Likelihood_Function,
-    string_to_likelihood_function,
-)
-from replay_structure.structure_trajectory import Most_Likely_Trajectories
-from replay_structure.read_write import load_structure_data, save_trajectory_results
+import click
 
-
-def get_trajectories(
-    data_type: Data_Type,
-    session_indicator: Session_Indicator,
-    bin_size_cm: int,
-    time_window_ms: int,
-    likelihood_function: Likelihood_Function,
-    sd_meters: Optional[float],
-    filename_ext: str = "",
-) -> None:
-    print(
-        f"running viterbi algorithm on {data_type.name} data, "
-        f"with {bin_size_cm}cm bins and {time_window_ms}ms time window"
-    )
-    structure_data = load_structure_data(
-        session_indicator,
-        time_window_ms,
-        data_type.name,
-        likelihood_function,
-        bin_size_cm=bin_size_cm,
-        ext=filename_ext,
-    )
-
-    if sd_meters is None:
-        raise AttributeError("Enter sd_meters")
-    print(sd_meters)
-
-    if structure_data is not None:
-        trajectory_results = Most_Likely_Trajectories(structure_data, sd_meters)
-    else:
-        trajectory_results = None
-    save_trajectory_results(
-        session_indicator,
-        time_window_ms,
-        data_type.name,
-        likelihood_function,
-        trajectory_results,
-        bin_size_cm=bin_size_cm,
-        ext=filename_ext,
-    )
+from replay_structure.metadata import string_to_data_type, string_to_likelihood_function, string_to_session_indicator
+from replay_structure.pipelines.modeling_pipeline import run_trajectories
 
 
 @click.command()
@@ -85,38 +34,20 @@ def main(
     sd_meters: Optional[float],
     filename_ext: str,
 ):
-
     data_type_ = string_to_data_type(data_type)
-    if time_window_ms is None:
-        time_window_ms = data_type_.default_time_window_ms
-
-    if likelihood_function is None:
-        likelihood_function_ = data_type_.default_likelihood_function
-    else:
-        likelihood_function_ = string_to_likelihood_function(likelihood_function)
-
+    session_indicator = None
+    likelihood_function_ = None if likelihood_function is None else string_to_likelihood_function(likelihood_function)
     if session is not None:
-        session_indicator: Session_Indicator = string_to_session_indicator(session)
-        get_trajectories(
-            data_type_,
-            session_indicator,
-            bin_size_cm,
-            time_window_ms,
-            likelihood_function_,
-            sd_meters,
-            filename_ext,
-        )
-    else:
-        for session_indicator in data_type_.session_list[2:]:
-            get_trajectories(
-                data_type_,
-                session_indicator,
-                bin_size_cm,
-                time_window_ms,
-                likelihood_function_,
-                sd_meters,
-                filename_ext,
-            )
+        session_indicator = string_to_session_indicator(session)
+    run_trajectories(
+        data_type=data_type_,
+        session=session_indicator,
+        bin_size_cm=bin_size_cm,
+        time_window_ms=time_window_ms,
+        likelihood_function=likelihood_function_,
+        sd_meters=sd_meters,
+        filename_ext=filename_ext,
+    )
 
 
 if __name__ == "__main__":
