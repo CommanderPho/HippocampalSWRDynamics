@@ -4,19 +4,19 @@ overview: Refactor `scripts/local` run scripts into importable, notebook-friendl
 todos:
   - id: create-pipeline-package
     content: Create `replay_structure/pipelines` package and define public API exports for notebook imports.
-    status: in_progress
+    status: completed
   - id: extract-local-script-logic
     content: Move execution logic from `scripts/local` into pipeline modules with minimal behavioral changes.
-    status: pending
+    status: completed
   - id: convert-scripts-to-wrappers
     content: Update `scripts/local` files to thin CLI wrappers that call new pipeline functions.
-    status: pending
+    status: completed
   - id: refactor-session-orchestrator
     content: Replace subprocess orchestration in `run_all_comps_for_sess.py` with direct pipeline function calls.
-    status: pending
+    status: completed
   - id: validate-imports-and-cli
     content: Run import smoke checks and representative CLI parity checks.
-    status: pending
+    status: completed
 isProject: false
 ---
 

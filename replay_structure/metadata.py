@@ -7,7 +7,7 @@ Module for defining project metadata.
 """
 
 
-from typing import Union, NamedTuple, Optional, List, Tuple
+from typing import Union, NamedTuple, Optional, List, Tuple, Dict, Any
 from pathlib import Path
 
 # --------------------------------------------------------------------------------------
@@ -108,16 +108,21 @@ MODEL_NAMES_FOR_PLOTTING_LIST = [
 
 
 SESSION_RATDAY = {
-    0: dict(rat=1, day=1, n_SWRs=322),
-    1: dict(rat=1, day=2, n_SWRs=527),
-    2: dict(rat=2, day=1, n_SWRs=222),
-    3: dict(rat=2, day=2, n_SWRs=257),
-    4: dict(rat=3, day=1, n_SWRs=406),
-    5: dict(rat=3, day=2, n_SWRs=296),
-    6: dict(rat=4, day=1, n_SWRs=594),
-    7: dict(rat=4, day=2, n_SWRs=356),
+    0: dict(rat=1, day=1, n_SWRs=0),
+    1: dict(rat=2, day=1, n_SWRs=0),
+    # 2: dict(rat=2, day=1, n_SWRs=222),
+    # 3: dict(rat=2, day=2, n_SWRs=257),
+    # 4: dict(rat=3, day=1, n_SWRs=406),
+    # 5: dict(rat=3, day=2, n_SWRs=296),
+    # 6: dict(rat=4, day=1, n_SWRs=594),
+    # 7: dict(rat=4, day=2, n_SWRs=356),
 }
-SESSIONS_AS_STR = ["0", "1", "2", "3", "4", "5", "6", "7"]
+SESSIONS_AS_STR: List[str] = [str(v) for v in list(SESSION_RATDAY.keys())] 
+                    # ["0",
+                #    "1",
+                    # "2", "3", "4", "5", "6", "7",
+                    # ]
+
 N_SESSIONS = len(SESSION_RATDAY)
 
 
@@ -177,7 +182,7 @@ SessionSpikemat_List: List[Session_Indicator] = [
             rat=SESSION_RATDAY[session]["rat"], day=SESSION_RATDAY[session]["day"]
         ),
     )
-    for session in range(8)
+    for session in range(N_SESSIONS)
     for spikemat in range(SESSION_RATDAY[session]["n_SWRs"])
 ]
 

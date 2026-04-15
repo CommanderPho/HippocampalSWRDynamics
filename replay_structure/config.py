@@ -25,8 +25,10 @@ class RatDay_Preprocessing_Parameters:
     while parameters that chosen for analysis are defined as instance variables.
     """
 
-    ENVIRONMENT_WIDTH_CM: float = 200
-    ENVIRONMENT_LENGTH_CM: float = 200
+    # ENVIRONMENT_WIDTH_CM: float = 200
+    # ENVIRONMENT_LENGTH_CM: float = 200
+    ENVIRONMENT_WIDTH_CM: float = 240
+    ENVIRONMENT_LENGTH_CM: float = 240
     POSITION_RECORDING_RESOLUTION_FRAMES_PER_S: float = 1 / 30
 
     def __init__(

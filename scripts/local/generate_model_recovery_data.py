@@ -2,7 +2,7 @@ from typing import Optional
 
 import click
 
-from replay_structure.metadata import Simulated_Session_Name, string_to_data_type, string_to_session_indicator
+from replay_structure.metadata import MODELS_AS_STR, Data_Type, Simulated_Session_Name, string_to_data_type, string_to_session_indicator
 from replay_structure.pipelines.modeling_pipeline import generate_model_recovery_data
 
 
