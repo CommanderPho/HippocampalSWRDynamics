@@ -3,12 +3,17 @@ from __future__ import annotations
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Union
 
 from replay_structure.metadata import (
     DATA_PATH,
+    Diffusion,
+    Momentum,
+    RESULTS_PATH,
     SESSION_RATDAY,
+    Session_Indicator,
     Session_Name,
+    Stationary_Gaussian,
     string_to_data_type,
     string_to_likelihood_function,
     string_to_model,
@@ -57,6 +62,106 @@ def _ratday_obj_path(session: int, bin_size_cm: int, filename_ext: str, rotate_p
     if rotate_placefields:
         return DATA_PATH.joinpath("ratday", f"{session_indicator}_{bin_size_cm}cm_placefields_rotated{filename_ext}.obj")
     return DATA_PATH.joinpath("ratday", f"{session_indicator}_{bin_size_cm}cm{filename_ext}.obj")
+
+
+def _spikemat_ripple_artifact_path(session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_spikemat_data paths."""
+    return DATA_PATH.joinpath(str(RIPPLES_DATA_TYPE.name), f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms{filename_ext}.obj")
+
+
+def _structure_analysis_input_ripple_path(session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, likelihood_function_: object, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_structure_data (structure_analysis_input folder)."""
+    return DATA_PATH.joinpath(
+        "structure_analysis_input",
+        f"{session_indicator}_{RIPPLES_DATA_TYPE.name}_{bin_size_cm}cm_{time_window_ms}ms_{likelihood_function_}{filename_ext}.obj",
+    )
+
+
+def _structure_model_results_path(session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, likelihood_function_: object, model_name: object, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_structure_model_results paths."""
+    return RESULTS_PATH.joinpath(
+        str(RIPPLES_DATA_TYPE.name),
+        f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms_{likelihood_function_}_{model_name}{filename_ext}.obj",
+    )
+
+
+def _model_comparison_artifact_path(session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, likelihood_function_: object, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_model_comparison_results paths."""
+    return RESULTS_PATH.joinpath(
+        str(RIPPLES_DATA_TYPE.name),
+        f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms_{likelihood_function_}_model_comparison{filename_ext}.obj",
+    )
+
+
+def _deviance_explained_artifact_path(session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, likelihood_function_: object, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_deviance_explained_results paths."""
+    return RESULTS_PATH.joinpath(
+        str(RIPPLES_DATA_TYPE.name),
+        f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms_{likelihood_function_}_deviance_explained{filename_ext}.obj",
+    )
+
+
+def _trajectories_artifact_path(session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, likelihood_function_: object, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_trajectory_results paths."""
+    return RESULTS_PATH.joinpath(
+        str(RIPPLES_DATA_TYPE.name),
+        f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms_{likelihood_function_}_trajectories{filename_ext}.obj",
+    )
+
+
+def _marginals_artifact_path(session_indicator: Session_Indicator, spikemat_ind: int, bin_size_cm: int, time_window_ms: int, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_marginals; run_marginals uses data_type.default_likelihood_function."""
+    lf = RIPPLES_DATA_TYPE.default_likelihood_function
+    return RESULTS_PATH.joinpath(
+        str(RIPPLES_DATA_TYPE.name),
+        f"{session_indicator}_spikemat{spikemat_ind}_{bin_size_cm}cm_{time_window_ms}ms_{lf}_marginals{filename_ext}.obj",
+    )
+
+
+def _diffusion_constant_inferred_artifact_path(session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_diffusion_constant_results (bin_space=False, trajectory_type=inferred)."""
+    lf = RIPPLES_DATA_TYPE.default_likelihood_function
+    return RESULTS_PATH.joinpath(
+        str(RIPPLES_DATA_TYPE.name),
+        f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms_{lf}_inferred_trajectories_diffusion_constant{filename_ext}.obj",
+    )
+
+
+def _gridsearch_session_level_artifact_path(session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, likelihood_function_: object, model_name: object, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_gridsearch_results when spikemat_ind is None."""
+    return RESULTS_PATH.joinpath(
+        str(RIPPLES_DATA_TYPE.name),
+        f"{session_indicator}_{bin_size_cm}cm_{time_window_ms}ms_{likelihood_function_}_{model_name}_gridsearch{filename_ext}.obj",
+    )
+
+
+def _gridsearch_momentum_spikemat_artifact_path(session_indicator: Session_Indicator, spikemat_ind: int, bin_size_cm: int, time_window_ms: int, likelihood_function_: object, filename_ext: str) -> Path:
+    """Must match replay_structure.read_write.save_gridsearch_results when spikemat_ind is set."""
+    return RESULTS_PATH.joinpath(
+        str(RIPPLES_DATA_TYPE.name),
+        f"{session_indicator}_spikemat{spikemat_ind}_{bin_size_cm}cm_{time_window_ms}ms_{likelihood_function_}_{Momentum()}_gridsearch{filename_ext}.obj",
+    )
+
+
+def _ripple_gridsearch_artifacts_complete(session: int, session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, likelihood_function_: object, filename_ext: str) -> bool:
+    for model in (Diffusion(), Stationary_Gaussian()):
+        p = _gridsearch_session_level_artifact_path(session_indicator, bin_size_cm, time_window_ms, likelihood_function_, model, filename_ext)
+        if not p.is_file():
+            return False
+    n_spikemats = SESSION_RATDAY[session]["n_SWRs"]
+    for spikemat_ind in range(n_spikemats):
+        p = _gridsearch_momentum_spikemat_artifact_path(session_indicator, spikemat_ind, bin_size_cm, time_window_ms, likelihood_function_, filename_ext)
+        if not p.is_file():
+            return False
+    return True
+
+
+def _marginals_artifacts_complete(session: int, session_indicator: Session_Indicator, bin_size_cm: int, time_window_ms: int, filename_ext: str) -> bool:
+    n_spikemats = SESSION_RATDAY[session]["n_SWRs"]
+    for spikemat_ind in range(n_spikemats):
+        if not _marginals_artifact_path(session_indicator, spikemat_ind, bin_size_cm, time_window_ms, filename_ext).is_file():
+            return False
+    return True
 
 
 def _record_skip(results: Dict[str, StepResult], name: str, critical: bool, reason: str) -> None:
@@ -171,7 +276,7 @@ def run_session_pipeline(
     filename_ext: str = "",
     trajectory_sd_meters: float = DEFAULT_TRAJECTORY_SD_METERS,
     skip_gridsearch: bool = False,
-    force_ratday_preprocess: bool = False,
+    force_recompute: bool = False,
     run_marginals_phase: bool = False,
     run_diffusion_constant_phase: bool = False,
     continue_on_gridsearch_error: bool = False,
@@ -184,7 +289,7 @@ def run_session_pipeline(
     likelihood_function_ = string_to_likelihood_function(likelihood_function)
     ratday_obj_path = _ratday_obj_path(session, bin_size_cm, filename_ext)
 
-    if ratday_obj_path.exists() and (not force_ratday_preprocess):
+    if ratday_obj_path.exists() and (not force_recompute):
         results["preprocess_ratday_data"] = StepResult(
             name="preprocess_ratday_data",
             critical=True,
@@ -205,20 +310,16 @@ def run_session_pipeline(
                 lambda: run_preprocess_ratday(session=session_indicator, bin_size_cm=bin_size_cm, filename_ext=filename_ext),
             ),
         )
-        
 
-
-    ripple_spikemat_path = Path(r"H:\TEMP\Spike3DEnv_ExploreUpgrade\Spike3DWorkEnv\HippocampalSWRDynamics\replay_structure\data\ripples\rat2day1_4cm_3ms.obj").resolve()
-    if ripple_spikemat_path.exists() and (not force_ratday_preprocess):
-        ## TODO: just get the loaded result and don't waste time recomputing
-        # results["preprocess_ratday_data"] = StepResult(
-        #     name="preprocess_ratday_data",
-        #     critical=True,
-        #     status="success",
-        #     detail=f"using existing ratday file: {ratday_obj_path}",
-        # )
-        # print(f"[OK] preprocess_ratday_data: using existing ratday file: {ratday_obj_path}")
-
+    spikemat_path = _spikemat_ripple_artifact_path(session_indicator, bin_size_cm, time_window_ms, filename_ext)
+    if spikemat_path.exists() and (not force_recompute):
+        results["preprocess_spikemat_data_ripples"] = StepResult(
+            name="preprocess_spikemat_data_ripples",
+            critical=True,
+            status="success",
+            detail=f"using existing file: {spikemat_path}",
+        )
+        print(f"[OK] preprocess_spikemat_data_ripples: using existing file: {spikemat_path}")
     else:
         _run_step(
             results,
@@ -239,185 +340,285 @@ def run_session_pipeline(
             ),
         )
 
-
-    _run_step(
-        results,
-        "reformat_data_for_structure_analysis_ripples",
-        critical=True,
-        dependencies=["preprocess_spikemat_data_ripples"],
-        strict=strict,
-        action=lambda: _execute_or_print(
-            dry_run,
-            f"run_structure_analysis_reformat(data_type=ripples, session={session}, bin_size_cm={bin_size_cm}, time_window_ms={time_window_ms}, likelihood_function={likelihood_function!r}, filename_ext={filename_ext!r})",
-            lambda: run_structure_analysis_reformat(
-                data_type=RIPPLES_DATA_TYPE,
-                session=session_indicator,
-                bin_size_cm=bin_size_cm,
-                time_window_ms=time_window_ms,
-                likelihood_function=likelihood_function_,
-                filename_ext=filename_ext,
-            ),
-        ),
-    )
-    _run_step(
-        results,
-        "run_model_stationary",
-        critical=True,
-        dependencies=["reformat_data_for_structure_analysis_ripples"],
-        strict=strict,
-        action=lambda: _execute_or_print(
-            dry_run,
-            "run_model(model=stationary, data_type=ripples, ...)",
-            lambda: run_model(
-                model=string_to_model("stationary"),
-                data_type=RIPPLES_DATA_TYPE,
-                session=session_indicator,
-                bin_size_cm=bin_size_cm,
-                time_window_ms=time_window_ms,
-                likelihood_function=likelihood_function_,
-                filename_ext=filename_ext,
-            ),
-        ),
-    )
-    _run_step(
-        results,
-        "run_model_random",
-        critical=True,
-        dependencies=["reformat_data_for_structure_analysis_ripples"],
-        strict=strict,
-        action=lambda: _execute_or_print(
-            dry_run,
-            "run_model(model=random, data_type=ripples, ...)",
-            lambda: run_model(
-                model=string_to_model("random"),
-                data_type=RIPPLES_DATA_TYPE,
-                session=session_indicator,
-                bin_size_cm=bin_size_cm,
-                time_window_ms=time_window_ms,
-                likelihood_function=likelihood_function_,
-                filename_ext=filename_ext,
-            ),
-        ),
-    )
-    _run_step(
-        results,
-        "gridsearch_ripples",
-        critical=True,
-        dependencies=["reformat_data_for_structure_analysis_ripples"],
-        strict=strict,
-        action=lambda: print("Skipping gridsearch execution and assuming existing results.")
-        if skip_gridsearch
-        else _run_gridsearch_phase(
-            session,
-            bin_size_cm,
-            time_window_ms,
-            likelihood_function,
-            filename_ext,
-            dry_run,
-            continue_on_gridsearch_error,
-        ),
-    )
-    _run_step(
-        results,
-        "run_model_comparison_ripples",
-        critical=True,
-        dependencies=["run_model_stationary", "run_model_random", "gridsearch_ripples"],
-        strict=strict,
-        action=lambda: _execute_or_print(
-            dry_run,
-            "run_model_comparison(data_type=ripples, ...)",
-            lambda: run_model_comparison(
-                data_type=RIPPLES_DATA_TYPE,
-                session=session_indicator,
-                bin_size_cm=bin_size_cm,
-                time_window_ms=time_window_ms,
-                likelihood_function=likelihood_function_,
-                filename_ext=filename_ext,
-            ),
-        ),
-    )
-    _run_step(
-        results,
-        "run_deviance_explained_ripples",
-        critical=True,
-        dependencies=["run_model_comparison_ripples"],
-        strict=strict,
-        action=lambda: _execute_or_print(
-            dry_run,
-            "run_deviance_explained(data_type=ripples, ...)",
-            lambda: run_deviance_explained(
-                data_type=RIPPLES_DATA_TYPE,
-                session=session_indicator,
-                bin_size_cm=bin_size_cm,
-                time_window_ms=time_window_ms,
-                likelihood_function=likelihood_function_,
-                filename_ext=filename_ext,
-            ),
-        ),
-    )
-    if run_marginals_phase:
+    reformat_path = _structure_analysis_input_ripple_path(session_indicator, bin_size_cm, time_window_ms, likelihood_function_, filename_ext)
+    if reformat_path.exists() and (not force_recompute):
+        results["reformat_data_for_structure_analysis_ripples"] = StepResult(
+            name="reformat_data_for_structure_analysis_ripples",
+            critical=True,
+            status="success",
+            detail=f"using existing file: {reformat_path}",
+        )
+        print(f"[OK] reformat_data_for_structure_analysis_ripples: using existing file: {reformat_path}")
+    else:
         _run_step(
             results,
-            "get_marginals_ripples",
-            critical=False,
+            "reformat_data_for_structure_analysis_ripples",
+            critical=True,
+            dependencies=["preprocess_spikemat_data_ripples"],
+            strict=strict,
+            action=lambda: _execute_or_print(
+                dry_run,
+                f"run_structure_analysis_reformat(data_type=ripples, session={session}, bin_size_cm={bin_size_cm}, time_window_ms={time_window_ms}, likelihood_function={likelihood_function!r}, filename_ext={filename_ext!r})",
+                lambda: run_structure_analysis_reformat(
+                    data_type=RIPPLES_DATA_TYPE,
+                    session=session_indicator,
+                    bin_size_cm=bin_size_cm,
+                    time_window_ms=time_window_ms,
+                    likelihood_function=likelihood_function_,
+                    filename_ext=filename_ext,
+                ),
+            ),
+        )
+
+    stationary_path = _structure_model_results_path(
+        session_indicator, bin_size_cm, time_window_ms, likelihood_function_, string_to_model("stationary").name, filename_ext
+    )
+    if stationary_path.exists() and (not force_recompute):
+        results["run_model_stationary"] = StepResult(
+            name="run_model_stationary",
+            critical=True,
+            status="success",
+            detail=f"using existing file: {stationary_path}",
+        )
+        print(f"[OK] run_model_stationary: using existing file: {stationary_path}")
+    else:
+        _run_step(
+            results,
+            "run_model_stationary",
+            critical=True,
             dependencies=["reformat_data_for_structure_analysis_ripples"],
             strict=strict,
             action=lambda: _execute_or_print(
                 dry_run,
-                "run_marginals(data_type=ripples, ...)",
-                lambda: run_marginals(
+                "run_model(model=stationary, data_type=ripples, ...)",
+                lambda: run_model(
+                    model=string_to_model("stationary"),
                     data_type=RIPPLES_DATA_TYPE,
                     session=session_indicator,
                     bin_size_cm=bin_size_cm,
                     time_window_ms=time_window_ms,
+                    likelihood_function=likelihood_function_,
                     filename_ext=filename_ext,
                 ),
             ),
         )
-    else:
-        _record_skip(results, "get_marginals_ripples", critical=False, reason="disabled; pass --run-marginals to enable")
-        
 
-    _run_step(
-        results,
-        "get_trajectories_ripples",
-        critical=True,
-        dependencies=["reformat_data_for_structure_analysis_ripples"],
-        strict=strict,
-        action=lambda: _execute_or_print(
-            dry_run,
-            "run_trajectories(data_type=ripples, ...)",
-            lambda: run_trajectories(
-                data_type=RIPPLES_DATA_TYPE,
-                session=session_indicator,
-                bin_size_cm=bin_size_cm,
-                time_window_ms=time_window_ms,
-                likelihood_function=likelihood_function_,
-                sd_meters=trajectory_sd_meters,
-                filename_ext=filename_ext,
-            ),
-        ),
+    random_path = _structure_model_results_path(
+        session_indicator, bin_size_cm, time_window_ms, likelihood_function_, string_to_model("random").name, filename_ext
     )
-    if run_diffusion_constant_phase:
+    if random_path.exists() and (not force_recompute):
+        results["run_model_random"] = StepResult(
+            name="run_model_random",
+            critical=True,
+            status="success",
+            detail=f"using existing file: {random_path}",
+        )
+        print(f"[OK] run_model_random: using existing file: {random_path}")
+    else:
         _run_step(
             results,
-            "run_diffusion_constant_inferred",
-            critical=False,
-            dependencies=["get_trajectories_ripples"],
+            "run_model_random",
+            critical=True,
+            dependencies=["reformat_data_for_structure_analysis_ripples"],
             strict=strict,
             action=lambda: _execute_or_print(
                 dry_run,
-                "run_diffusion_constant_analysis(data_type=ripples, trajectory_type=inferred, ...)",
-                lambda: run_diffusion_constant_analysis(
+                "run_model(model=random, data_type=ripples, ...)",
+                lambda: run_model(
+                    model=string_to_model("random"),
                     data_type=RIPPLES_DATA_TYPE,
                     session=session_indicator,
                     bin_size_cm=bin_size_cm,
                     time_window_ms=time_window_ms,
-                    trajectory_type="inferred",
+                    likelihood_function=likelihood_function_,
                     filename_ext=filename_ext,
                 ),
             ),
         )
+
+    gridsearch_use_cache = (not skip_gridsearch) and _ripple_gridsearch_artifacts_complete(
+        session, session_indicator, bin_size_cm, time_window_ms, likelihood_function_, filename_ext
+    )
+    if gridsearch_use_cache and (not force_recompute):
+        results["gridsearch_ripples"] = StepResult(
+            name="gridsearch_ripples",
+            critical=True,
+            status="success",
+            detail="using existing gridsearch artifacts",
+        )
+        print("[OK] gridsearch_ripples: using existing gridsearch artifacts")
+    else:
+        _run_step(
+            results,
+            "gridsearch_ripples",
+            critical=True,
+            dependencies=["reformat_data_for_structure_analysis_ripples"],
+            strict=strict,
+            action=lambda: print("Skipping gridsearch execution and assuming existing results.")
+            if skip_gridsearch
+            else _run_gridsearch_phase(
+                session,
+                bin_size_cm,
+                time_window_ms,
+                likelihood_function,
+                filename_ext,
+                dry_run,
+                continue_on_gridsearch_error,
+            ),
+        )
+
+    mc_path = _model_comparison_artifact_path(session_indicator, bin_size_cm, time_window_ms, likelihood_function_, filename_ext)
+    if mc_path.exists() and (not force_recompute):
+        results["run_model_comparison_ripples"] = StepResult(
+            name="run_model_comparison_ripples",
+            critical=True,
+            status="success",
+            detail=f"using existing file: {mc_path}",
+        )
+        print(f"[OK] run_model_comparison_ripples: using existing file: {mc_path}")
+    else:
+        _run_step(
+            results,
+            "run_model_comparison_ripples",
+            critical=True,
+            dependencies=["run_model_stationary", "run_model_random", "gridsearch_ripples"],
+            strict=strict,
+            action=lambda: _execute_or_print(
+                dry_run,
+                "run_model_comparison(data_type=ripples, ...)",
+                lambda: run_model_comparison(
+                    data_type=RIPPLES_DATA_TYPE,
+                    session=session_indicator,
+                    bin_size_cm=bin_size_cm,
+                    time_window_ms=time_window_ms,
+                    likelihood_function=likelihood_function_,
+                    filename_ext=filename_ext,
+                ),
+            ),
+        )
+
+    deviance_path = _deviance_explained_artifact_path(session_indicator, bin_size_cm, time_window_ms, likelihood_function_, filename_ext)
+    if deviance_path.exists() and (not force_recompute):
+        results["run_deviance_explained_ripples"] = StepResult(
+            name="run_deviance_explained_ripples",
+            critical=True,
+            status="success",
+            detail=f"using existing file: {deviance_path}",
+        )
+        print(f"[OK] run_deviance_explained_ripples: using existing file: {deviance_path}")
+    else:
+        _run_step(
+            results,
+            "run_deviance_explained_ripples",
+            critical=True,
+            dependencies=["run_model_comparison_ripples"],
+            strict=strict,
+            action=lambda: _execute_or_print(
+                dry_run,
+                "run_deviance_explained(data_type=ripples, ...)",
+                lambda: run_deviance_explained(
+                    data_type=RIPPLES_DATA_TYPE,
+                    session=session_indicator,
+                    bin_size_cm=bin_size_cm,
+                    time_window_ms=time_window_ms,
+                    likelihood_function=likelihood_function_,
+                    filename_ext=filename_ext,
+                ),
+            ),
+        )
+
+    if run_marginals_phase:
+        if _marginals_artifacts_complete(session, session_indicator, bin_size_cm, time_window_ms, filename_ext) and (not force_recompute):
+            results["get_marginals_ripples"] = StepResult(
+                name="get_marginals_ripples",
+                critical=False,
+                status="success",
+                detail="using existing marginals files",
+            )
+            print("[OK] get_marginals_ripples: using existing marginals files")
+        else:
+            _run_step(
+                results,
+                "get_marginals_ripples",
+                critical=False,
+                dependencies=["reformat_data_for_structure_analysis_ripples"],
+                strict=strict,
+                action=lambda: _execute_or_print(
+                    dry_run,
+                    "run_marginals(data_type=ripples, ...)",
+                    lambda: run_marginals(
+                        data_type=RIPPLES_DATA_TYPE,
+                        session=session_indicator,
+                        bin_size_cm=bin_size_cm,
+                        time_window_ms=time_window_ms,
+                        filename_ext=filename_ext,
+                    ),
+                ),
+            )
+    else:
+        _record_skip(results, "get_marginals_ripples", critical=False, reason="disabled; pass --run-marginals to enable")
+
+    traj_path = _trajectories_artifact_path(session_indicator, bin_size_cm, time_window_ms, likelihood_function_, filename_ext)
+    if traj_path.exists() and (not force_recompute):
+        results["get_trajectories_ripples"] = StepResult(
+            name="get_trajectories_ripples",
+            critical=True,
+            status="success",
+            detail=f"using existing file: {traj_path}",
+        )
+        print(f"[OK] get_trajectories_ripples: using existing file: {traj_path}")
+    else:
+        _run_step(
+            results,
+            "get_trajectories_ripples",
+            critical=True,
+            dependencies=["reformat_data_for_structure_analysis_ripples"],
+            strict=strict,
+            action=lambda: _execute_or_print(
+                dry_run,
+                "run_trajectories(data_type=ripples, ...)",
+                lambda: run_trajectories(
+                    data_type=RIPPLES_DATA_TYPE,
+                    session=session_indicator,
+                    bin_size_cm=bin_size_cm,
+                    time_window_ms=time_window_ms,
+                    likelihood_function=likelihood_function_,
+                    sd_meters=trajectory_sd_meters,
+                    filename_ext=filename_ext,
+                ),
+            ),
+        )
+
+    if run_diffusion_constant_phase:
+        dc_path = _diffusion_constant_inferred_artifact_path(session_indicator, bin_size_cm, time_window_ms, filename_ext)
+        if dc_path.exists() and (not force_recompute):
+            results["run_diffusion_constant_inferred"] = StepResult(
+                name="run_diffusion_constant_inferred",
+                critical=False,
+                status="success",
+                detail=f"using existing file: {dc_path}",
+            )
+            print(f"[OK] run_diffusion_constant_inferred: using existing file: {dc_path}")
+        else:
+            _run_step(
+                results,
+                "run_diffusion_constant_inferred",
+                critical=False,
+                dependencies=["get_trajectories_ripples"],
+                strict=strict,
+                action=lambda: _execute_or_print(
+                    dry_run,
+                    "run_diffusion_constant_analysis(data_type=ripples, trajectory_type=inferred, ...)",
+                    lambda: run_diffusion_constant_analysis(
+                        data_type=RIPPLES_DATA_TYPE,
+                        session=session_indicator,
+                        bin_size_cm=bin_size_cm,
+                        time_window_ms=time_window_ms,
+                        trajectory_type="inferred",
+                        filename_ext=filename_ext,
+                    ),
+                ),
+            )
     else:
         _record_skip(
             results,
@@ -425,7 +626,7 @@ def run_session_pipeline(
             critical=False,
             reason="disabled; pass --run-diffusion-constant to enable",
         )
-        
+
     _print_summary(results)
     critical_failures = [result for result in results.values() if result.critical and result.status == "failed"]
     if critical_failures:

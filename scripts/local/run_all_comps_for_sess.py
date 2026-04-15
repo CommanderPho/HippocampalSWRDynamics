@@ -16,7 +16,7 @@ from replay_structure.pipelines.session_pipeline import (
 @click.option("--filename_ext", type=click.STRING, default="", show_default=True)
 @click.option("--trajectory_sd_meters", type=click.FLOAT, default=DEFAULT_TRAJECTORY_SD_METERS, show_default=True)
 @click.option("--skip-gridsearch", is_flag=True, help="Assume gridsearch result inputs already exist.")
-@click.option("--force-ratday-preprocess", is_flag=True, help="Regenerate ratday data from OpenFieldData.mat even if a saved ratday .obj already exists.")
+@click.option("--force-recompute", is_flag=True, help="Re-run all pipeline steps even when output artifacts already exist.")
 @click.option("--run-marginals", is_flag=True, help="Run get_marginals.py after the core model comparison pipeline.")
 @click.option("--run-diffusion-constant", is_flag=True, help="Run run_diffusion_constant.py after trajectories are computed.")
 @click.option("--continue-on-gridsearch-error", is_flag=True, help="Continue momentum gridsearch after per-spikemat failures when possible.")
@@ -30,7 +30,7 @@ def main(
     filename_ext: str,
     trajectory_sd_meters: float,
     skip_gridsearch: bool,
-    force_ratday_preprocess: bool,
+    force_recompute: bool,
     run_marginals: bool,
     run_diffusion_constant: bool,
     continue_on_gridsearch_error: bool,
@@ -47,7 +47,7 @@ def main(
     filename_ext: str = ''
     trajectory_sd_meters: float = DEFAULT_TRAJECTORY_SD_METERS
     skip_gridsearch: bool = True
-    force_ratday_preprocess: bool = True
+    force_recompute: bool = True
     run_marginals: bool = True
     run_diffusion_constant: bool = True
     continue_on_gridsearch_error: bool = False
@@ -63,7 +63,7 @@ def main(
         filename_ext=filename_ext,
         trajectory_sd_meters=trajectory_sd_meters,
         skip_gridsearch=skip_gridsearch,
-        force_ratday_preprocess=force_ratday_preprocess,
+        force_recompute=force_recompute,
         run_marginals_phase=run_marginals,
         run_diffusion_constant_phase=run_diffusion_constant,
         continue_on_gridsearch_error=continue_on_gridsearch_error,
