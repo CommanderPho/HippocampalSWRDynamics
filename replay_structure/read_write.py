@@ -326,6 +326,16 @@ def aggregate_momentum_gridsearch(
     bin_size_cm: int = 4,
     ext="",
 ):
+    def _coerce_structure_gridsearch(gridsearch_obj: object) -> Optional[Structure_Gridsearch]:
+        if isinstance(gridsearch_obj, Structure_Gridsearch):
+            return gridsearch_obj
+        if isinstance(gridsearch_obj, dict) and ("gridsearch_params" in gridsearch_obj) and ("gridsearch_results" in gridsearch_obj):
+            coerced_gridsearch = Structure_Gridsearch.__new__(Structure_Gridsearch)
+            coerced_gridsearch.gridsearch_params = gridsearch_obj["gridsearch_params"]
+            coerced_gridsearch.gridsearch_results = gridsearch_obj["gridsearch_results"]
+            return coerced_gridsearch
+        return None
+
     # get n_ripples
     structure_data = load_structure_data(
         session_indicator,
@@ -336,31 +346,31 @@ def aggregate_momentum_gridsearch(
     )
     n_spikemats = len(structure_data.spikemats)
 
-    # load first ripple and get gridsearch parameters
-    momentum_gridsearch_0 = load_gridsearch_results(
-        session_indicator,
-        time_window_ms,
-        data_type,
-        likelihood_function,
-        Momentum(),
-        spikemat_ind=0,
-        bin_size_cm=bin_size_cm,
-        print_filename=True,
-        ext=ext,
-    )
-    if momentum_gridsearch_0 is None:
-        momentum_gridsearch_0 = load_gridsearch_results(
+    # load first valid ripple and get gridsearch parameters
+    candidate_spikemat_indices = [0, 2] + [spikemat_ind for spikemat_ind in range(n_spikemats) if spikemat_ind not in (0, 2)]
+    momentum_gridsearch_0: Optional[Structure_Gridsearch] = None
+    for i, spikemat_ind in enumerate(candidate_spikemat_indices):
+        loaded_gridsearch = load_gridsearch_results(
             session_indicator,
             time_window_ms,
             data_type,
             likelihood_function,
             Momentum(),
-            spikemat_ind=2,
+            spikemat_ind=spikemat_ind,
             bin_size_cm=bin_size_cm,
-            print_filename=False,
+            print_filename=(i == 0),
             ext=ext,
         )
-    assert isinstance(momentum_gridsearch_0, Structure_Gridsearch)
+        momentum_gridsearch_0 = _coerce_structure_gridsearch(loaded_gridsearch)
+        if momentum_gridsearch_0 is not None:
+            break
+    if momentum_gridsearch_0 is None:
+        raise FileNotFoundError(
+            f"No valid momentum gridsearch artifact found for {session_indicator} "
+            f"({data_type}, {bin_size_cm}cm, {time_window_ms}ms, {likelihood_function}, ext={ext!r}). "
+            "Run the momentum gridsearch phase first."
+        )
+
     n_sd = len(momentum_gridsearch_0.gridsearch_params["sd_array_meters"])
     n_decay = len(momentum_gridsearch_0.gridsearch_params["decay_array"])
 
@@ -379,7 +389,8 @@ def aggregate_momentum_gridsearch(
             print_filename=False,
             ext=ext,
         )
-        if isinstance(ripple_gridsearch, Structure_Gridsearch):
+        ripple_gridsearch = _coerce_structure_gridsearch(ripple_gridsearch)
+        if ripple_gridsearch is not None:
             gridsearch_results[ripple] = ripple_gridsearch.gridsearch_results
         else:
             to_run_on_o2_medium = np.append(to_run_on_o2_medium, ripple)
