@@ -24,11 +24,18 @@ from replay_structure.pipelines.modeling_pipeline import (
 )
 from replay_structure.pipelines.preprocessing_pipeline import run_preprocess_ratday, run_preprocess_spikemat
 from replay_structure.pipelines.structure_analysis_pipeline import run_structure_analysis_reformat
-from scripts.o2.o2_lib import (
-    submit_diffusion_gridsearch,
-    submit_momentum_gridsearch,
-    submit_stationary_gaussian_gridsearch,
-)
+
+try:
+    from scripts.o2.o2_lib import (
+        submit_diffusion_gridsearch,
+        submit_momentum_gridsearch,
+        submit_stationary_gaussian_gridsearch,
+    )
+except ModuleNotFoundError as err:
+        submit_diffusion_gridsearch = None
+        submit_momentum_gridsearch = None
+        submit_stationary_gaussian_gridsearch = None
+
 
 RIPPLES_DATA_TYPE = string_to_data_type("ripples")
 DEFAULT_LIKELIHOOD = str(RIPPLES_DATA_TYPE.default_likelihood_function)
@@ -171,10 +178,12 @@ def run_session_pipeline(
     strict: bool = False,
     dry_run: bool = False,
 ) -> Dict[str, StepResult]:
+
     results: Dict[str, StepResult] = {}
     session_indicator = string_to_session_indicator(session)
     likelihood_function_ = string_to_likelihood_function(likelihood_function)
     ratday_obj_path = _ratday_obj_path(session, bin_size_cm, filename_ext)
+
     if ratday_obj_path.exists() and (not force_ratday_preprocess):
         results["preprocess_ratday_data"] = StepResult(
             name="preprocess_ratday_data",
@@ -196,24 +205,41 @@ def run_session_pipeline(
                 lambda: run_preprocess_ratday(session=session_indicator, bin_size_cm=bin_size_cm, filename_ext=filename_ext),
             ),
         )
-    _run_step(
-        results,
-        "preprocess_spikemat_data_ripples",
-        critical=True,
-        dependencies=["preprocess_ratday_data"],
-        strict=strict,
-        action=lambda: _execute_or_print(
-            dry_run,
-            f"run_preprocess_spikemat(data_type=ripples, session={session}, bin_size_cm={bin_size_cm}, time_window_ms={time_window_ms}, filename_ext={filename_ext!r})",
-            lambda: run_preprocess_spikemat(
-                data_type=RIPPLES_DATA_TYPE,
-                session=session_indicator,
-                bin_size_cm=bin_size_cm,
-                time_window_ms=time_window_ms,
-                filename_ext=filename_ext,
+        
+
+
+    ripple_spikemat_path = Path(r"H:\TEMP\Spike3DEnv_ExploreUpgrade\Spike3DWorkEnv\HippocampalSWRDynamics\replay_structure\data\ripples\rat2day1_4cm_3ms.obj").resolve()
+    if ripple_spikemat_path.exists() and (not force_ratday_preprocess):
+        ## TODO: just get the loaded result and don't waste time recomputing
+        # results["preprocess_ratday_data"] = StepResult(
+        #     name="preprocess_ratday_data",
+        #     critical=True,
+        #     status="success",
+        #     detail=f"using existing ratday file: {ratday_obj_path}",
+        # )
+        # print(f"[OK] preprocess_ratday_data: using existing ratday file: {ratday_obj_path}")
+
+    else:
+        _run_step(
+            results,
+            "preprocess_spikemat_data_ripples",
+            critical=True,
+            dependencies=["preprocess_ratday_data"],
+            strict=strict,
+            action=lambda: _execute_or_print(
+                dry_run,
+                f"run_preprocess_spikemat(data_type=ripples, session={session}, bin_size_cm={bin_size_cm}, time_window_ms={time_window_ms}, filename_ext={filename_ext!r})",
+                lambda: run_preprocess_spikemat(
+                    data_type=RIPPLES_DATA_TYPE,
+                    session=session_indicator,
+                    bin_size_cm=bin_size_cm,
+                    time_window_ms=time_window_ms,
+                    filename_ext=filename_ext,
+                ),
             ),
-        ),
-    )
+        )
+
+
     _run_step(
         results,
         "reformat_data_for_structure_analysis_ripples",
@@ -350,6 +376,8 @@ def run_session_pipeline(
         )
     else:
         _record_skip(results, "get_marginals_ripples", critical=False, reason="disabled; pass --run-marginals to enable")
+        
+
     _run_step(
         results,
         "get_trajectories_ripples",
@@ -397,6 +425,7 @@ def run_session_pipeline(
             critical=False,
             reason="disabled; pass --run-diffusion-constant to enable",
         )
+        
     _print_summary(results)
     critical_failures = [result for result in results.values() if result.critical and result.status == "failed"]
     if critical_failures:

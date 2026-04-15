@@ -29,3 +29,4 @@ data/*
 # poetry
 replay_structure.egg-info/*
 **/.specstory
+replay_structure/results/plotting_temp/rat*

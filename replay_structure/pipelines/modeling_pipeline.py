@@ -22,10 +22,10 @@ from replay_structure.metadata import (
     HighSynchronyEvents,
     HighSynchronyEvents_PF_Data,
     Likelihood_Function,
-    MODELS_AS_STR,
     Momentum,
     Momentum_Model,
     Neg_Binomial,
+    PLOTTING_FOLDER,
     Poisson,
     Ripples,
     Ripples_PF_Data,
@@ -442,7 +442,7 @@ def _get_marginals_for_spikemat(
     filename_ext: str,
 ) -> None:
     print(f"running spikemat {spikemat_ind}")
-    plotting_folder = os.path.join("plots", f"{session}spikemat{spikemat_ind}")
+    plotting_folder = os.path.join(PLOTTING_FOLDER, f"{session}spikemat{spikemat_ind}")
     if not os.path.exists(plotting_folder):
         os.mkdir(plotting_folder)
     marginals = All_Models_Marginals(
